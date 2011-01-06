@@ -109,7 +109,7 @@ class PylintRunner(LintRunner):
 
     command = 'python'
 
-    sane_default_ignore_codes = set([
+    sane_default_ignore_codes = list(set([
         "C0103",  # Naming convention
         "C0111",  # Missing Docstring
         "E1002",  # Use super on old-style class
@@ -121,7 +121,7 @@ class PylintRunner(LintRunner):
         "R0904",  # Too many public methods
         "R0903",  # Too few public methods
         "R0201",  # Method could be a function
-        ])
+        ]))
 
     fixup_map = {'E': 'error', 'C': 'info', None: 'warning'}
 
@@ -138,7 +138,7 @@ class PylintRunner(LintRunner):
                 '--output-format', 'parseable',
                 '--include-ids', 'y',
                 '--reports', 'n',
-                '--disable=' + ','.join(self.operative_ignore_codes),
+                '--disable=' + ','.join(self.config.IGNORE_CODES_PYLINT + self.sane_default_ignore_codes),
                 '--generated-members=' + self.config.GENERATED_MEMBERS,
                 '--ignore-iface-methods=' + self.config.IGNORE_IFACE_METHODS,
                 '--dummy-variables-rgx=' + self.config.DUMMY_VARIABLES_RGX,
@@ -234,7 +234,7 @@ class Pep8Runner(LintRunner):
 
     @property
     def run_flags(self):
-        return '--repeat', '--ignore=' + ','.join(self.config.IGNORE_CODES)
+        return '--repeat', '--ignore=' + ','.join(self.config.IGNORE_CODES_PEP8)
 
 
 class TestRunner(LintRunner):
@@ -303,7 +303,9 @@ DEFAULT_CONFIG = dict(
     PYCHECKER=False,
     PEP8=True,
     PYFLAKES=True,
-    IGNORE_CODES=(),
+    IGNORE_CODES=[],
+    IGNORE_CODES_PYLINT=[],
+    IGNORE_CODES_PEP8=[],
     USE_SANE_DEFAULTS=True,
     IGNORE_IFACE_METHODS=(),
     GENERATED_MEMBERS=(),
