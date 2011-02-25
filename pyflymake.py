@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import compiler
 import os
 import re
 import sys
@@ -93,6 +93,35 @@ class LintRunner(object):
             for line in getattr(process, other_stream):
                 logging.debug('%s %s: %s',
                               self.__class__.__name__, other_stream, line)
+
+
+class CompilerRunner(LintRunner):
+
+    class CompilerMatcher(object):
+
+        def __init__(self, compilation_failure):
+            self.compilation_failure = compilation_failure
+
+        @classmethod
+        def match(cls, compilation_failure):
+            return cls(compilation_failure)
+
+        def groupdict(self):
+            filename, args = self.compilation_failure
+            return dict(
+                level='ERROR',
+                line_number=args[1][1],
+                filename=filename,
+                description=args[0],
+            )
+
+    output_matcher = CompilerMatcher
+
+    def run(self, filename):
+        try:
+            compiler.parseFile(filename)
+        except (SyntaxError, Exception), e:
+            self.process_output((filename, e.args))
 
 
 class PylintRunner(LintRunner):
@@ -196,8 +225,8 @@ class PyflakesRunner(LintRunner):
     @staticmethod
     def fixup_data(data):
         # XXX: doesn't seem to give the level
-        data['error_type'] = 'W'
-        data['level'] = 'warning'
+        data['error_type'] = 'E'
+        data['level'] = 'ERROR'
         return data
 
     @property
@@ -310,6 +339,7 @@ DEFAULT_CONFIG = dict(
     PYCHECKER=False,
     PEP8=True,
     PYFLAKES=True,
+    COMPILER=True,
     IGNORE_CODES=[],
     IGNORE_CODES_PYLINT=[],
     IGNORE_CODES_PEP8=[],
@@ -379,8 +409,10 @@ def main():
         run(Pep8Runner)
     if config.PYFLAKES:
         run(PyflakesRunner)
+    if config.COMPILER:
+        run(CompilerRunner)
 
-    sys.exit()
+    exit()
 
 
 def log_it(string_):
