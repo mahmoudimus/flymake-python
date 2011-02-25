@@ -6,10 +6,12 @@ import re
 import sys
 import imp
 import logging
-
+from optparse import OptionParser
 from subprocess import Popen, PIPE
 
+
 MAX_DESCRIPTION_LENGTH = 60
+
 
 class LintRunner(object):
     """ Base class provides common functionality to run
@@ -28,6 +30,7 @@ class LintRunner(object):
         self.config = config
         if self.config.VIRTUALENV:
             # This is the least we can get away with (hopefully).
+            # virtualenv needs to be the path to the actual virtualenv
             self.env = {
                 'VIRTUAL_ENV': self.config.VIRTUALENV,
                 'PATH': self.config.VIRTUALENV + '/bin:' + os.environ['PATH']}
@@ -35,11 +38,12 @@ class LintRunner(object):
             self.env = {}
 
         self.env.update(self.config.ENV)
+        # log_it(self.env)
 
     @property
     def operative_ignore_codes(self):
         if self.config.USE_SANE_DEFAULTS:
-            return self.config.IGNORE_CODES ^ self.sane_default_ignore_codes
+            return self.config.IGNORE_CODES | self.sane_default_ignore_codes
         else:
             return self.config.IGNORE_CODES
 
@@ -133,16 +137,18 @@ class PylintRunner(LintRunner):
 
     @property
     def run_flags(self):
-        return ('-c',
-                'import sys,pylint.lint;pylint.lint.Run(sys.argv[1:])',
-                '--output-format', 'parseable',
-                '--include-ids', 'y',
-                '--reports', 'n',
-                '--disable=' + ','.join(self.config.IGNORE_CODES_PYLINT + self.sane_default_ignore_codes),
-                '--generated-members=' + self.config.GENERATED_MEMBERS,
-                '--ignore-iface-methods=' + self.config.IGNORE_IFACE_METHODS,
-                '--dummy-variables-rgx=' + self.config.DUMMY_VARIABLES_RGX,
-                )
+        return (
+            '-c',
+            'import sys,pylint.lint;pylint.lint.Run(sys.argv[1:])',
+            '--output-format', 'parseable',
+            '--include-ids', 'y',
+            '--reports', 'n',
+            '--disable=' + ','.join(self.config.IGNORE_CODES_PYLINT +
+                                    self.sane_default_ignore_codes),
+            '--generated-members=' + self.config.GENERATED_MEMBERS,
+            '--ignore-iface-methods=' + self.config.IGNORE_IFACE_METHODS,
+            '--dummy-variables-rgx=' + self.config.DUMMY_VARIABLES_RGX,
+        )
 
 
 class PycheckerRunner(LintRunner):
@@ -163,7 +169,7 @@ class PycheckerRunner(LintRunner):
 
     @staticmethod
     def fixup_data(data):
-        #XXX: doesn't seem to give the level
+        # XXX: doesn't seem to give the level
         data['level'] = 'warning'
         return data
 
@@ -189,7 +195,7 @@ class PyflakesRunner(LintRunner):
 
     @staticmethod
     def fixup_data(data):
-        #XXX: doesn't seem to give the level
+        # XXX: doesn't seem to give the level
         data['error_type'] = 'W'
         data['level'] = 'warning'
         return data
@@ -234,7 +240,8 @@ class Pep8Runner(LintRunner):
 
     @property
     def run_flags(self):
-        return '--repeat', '--ignore=' + ','.join(self.config.IGNORE_CODES_PEP8)
+        return ('--repeat',
+                '--ignore=' + ','.join(self.config.IGNORE_CODES_PEP8))
 
 
 class TestRunner(LintRunner):
@@ -314,26 +321,31 @@ DEFAULT_CONFIG = dict(
 
 
 def main():
-    from optparse import OptionParser
     parser = OptionParser()
     parser.add_option("-e", "--virtualenv",
                       dest="virtualenv",
                       default=None,
                       help="virtualenv directory")
+
     parser.add_option("-t", "--trigger-type",
                       dest="trigger_type",
                       default=None,
                       choices=('open', 'edit', 'save', 'force'),
                       help="flymake trigger type")
+
     parser.add_option("-i", "--ignore_codes",
                       dest="ignore_codes",
                       default=None,
                       help="error codes to ignore")
+
     parser.add_option("-d", "--debug",
                       action='store_true',
                       dest="debug",
                       help="print debugging on stderr")
+
     options, args = parser.parse_args()
+    ## log_it(options)
+    ## log_it(args)
 
     logging.basicConfig(
         level=options.debug and logging.DEBUG or logging.WARNING,
@@ -345,7 +357,10 @@ def main():
     for option in 'virtualenv', 'ignore_codes':
         value = getattr(options, option)
         if value is not None:
+            if option == 'virtualenv':
+                value = os.path.expanduser(value)
             setattr(config, option.upper(), value)
+
     config.IGNORE_CODES = set(config.IGNORE_CODES)
 
     if config.TEST_RUNNER_COMMAND:
@@ -367,5 +382,13 @@ def main():
 
     sys.exit()
 
+
+def log_it(string_):
+    with open('/tmp/paths.log', 'a+') as f:
+        f.write("---\n%s\n" % string_)
+
+
 if __name__ == '__main__':
+    ## log_it(sys.argv)
+    ## log_it(os.environ['PATH'])
     main()
