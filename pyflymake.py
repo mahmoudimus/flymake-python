@@ -3,14 +3,14 @@
 import compiler
 import os
 import re
-import sys
 import imp
 import logging
+import sys
 from optparse import OptionParser
 from subprocess import Popen, PIPE
 
 
-MAX_DESCRIPTION_LENGTH = 60
+MAX_DESCRIPTION_LENGTH = 100
 
 
 class LintRunner(object):
@@ -83,7 +83,13 @@ class LintRunner(object):
 
         env = dict(os.environ, **self.env)
         logging.debug(' '.join(cmdline))
-        process = Popen(cmdline, stdout=PIPE, stderr=PIPE, env=env)
+        try:
+            process = Popen(cmdline, stdout=PIPE, stderr=PIPE, env=env)
+        except OSError:
+            print >>sys.stderr, cmdline, ' failed to execute!'
+            print >>sys.stderr, 'For your convenience, here it is joined: '
+            print >>sys.stderr, ' '.join(cmdline)
+            raise
 
         for line in getattr(process, self.stream):
             self.process_output(line)
@@ -149,11 +155,12 @@ class PylintRunner(LintRunner):
         "W0232",  # No __init__
         #"I0011",  # Warning locally suppressed using disable-msg
         #"I0012",  # Warning locally suppressed using disable-msg
-        #"W0511",  # FIXME/TODO
-        #"W0142",  # *args or **kwargs magic.
+        "W0511",  # FIXME/TODO
+        "W0142",  # *args or **kwargs magic.
         "R0904",  # Too many public methods
         "R0903",  # Too few public methods
         "R0201",  # Method could be a function
+        "E1101",  # %r %r has no '%r' member  # XXX FIX THIS.
         ]))
 
     fixup_map = {'E': 'error', 'C': 'info', None: 'warning'}
@@ -421,6 +428,7 @@ def log_it(string_):
 
 
 if __name__ == '__main__':
-    ## log_it(sys.argv)
-    ## log_it(os.environ['PATH'])
+    # import sys
+    # log_it(sys.argv)
+    # log_it(os.environ['PATH'])
     main()
